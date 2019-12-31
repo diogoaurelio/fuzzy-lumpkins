@@ -12,14 +12,16 @@ import org.fuzzylumpkins.crawl.CrawlServiceFactory.OverallDetails
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.PropertyData
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.RoomDetails
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.SalesDetails
+import org.fuzzylumpkins.targets.RealEstate
 import org.openqa.selenium.By
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.chrome.ChromeDriver
 
 class EraCrawler extends Crawler with LazyLogging {
 
-  override def collectInfo(url: String, realestateCompany: RealEstate.Company): Option[PropertyData] = {
-    println(s"Crawling product details for url ${url}")
+  override def collectInfo(url: String,
+                           realestateCompany: RealEstate.Company): Option[PropertyData] = {
+    println(s"${this.getClass.getName} - Crawling product details for url ${url}")
     System.setProperty("webdriver.chrome.driver", "/usr/bin/chromedriver")
     val driver = new ChromeDriver()
     try {
@@ -27,8 +29,11 @@ class EraCrawler extends Crawler with LazyLogging {
       driver.manage().timeouts().implicitlyWait(3l, TimeUnit.SECONDS)
       driver.get(url)
 
-      val title = Some(driver.findElement(By.xpath("//div[@class=\"property-name\"]/h3")).getText)
-      val salesId = Some(driver.findElement(By.xpath("//div[@class=\"property-name\"]/p")).getText)
+      val title = safeGetStringWebElement(
+        () => driver.findElement(By.xpath("//div[@class=\"property-name\"]/h3")))
+      val salesId = safeGetStringWebElement(
+        () => driver.findElement(By.xpath("//div[@class=\"property-name\"]/p")))
+
       val details = driver.findElement(By.xpath("//div[@class=\"main-details\"]/h4")).getText
       val splitDetails = details.split(" ")
       val numBedRooms = Some(splitDetails(0).toInt)
@@ -37,7 +42,7 @@ class EraCrawler extends Crawler with LazyLogging {
           .findElement(By.xpath("//div[@class=\"property-details-list\"]/ul")).getText
 
       if (overallDetailsExtract.length == 0) {
-        println("No property details were found!")
+        println("${this.getClass.getName} - No property details were found!")
         None
       } else {
         val additionalArr = overallDetailsExtract.split("\n")
@@ -56,9 +61,10 @@ class EraCrawler extends Crawler with LazyLogging {
         val overallDetails = OverallDetails(priceExtracted, year = yearBuilt, netArea, rawArea,
           numBathRooms, numBedRooms, overallCondition, parkingDetails = Some(""), energyCertificate,
           textDescription = textDetails)
-        logger.info(s"Extracted overallDetails for URL ${url}: ${overallDetails}")
+        logger.info(
+          s" ${this.getClass.getName} -Extracted overallDetails for URL ${url}: ${overallDetails}")
         val roomDetails = Try(driver
-              .findElement(By.xpath("//div[@class=\"property-details-list\"][2]/ul")).getText) match {
+            .findElement(By.xpath("//div[@class=\"property-details-list\"][2]/ul")).getText) match {
           case Success(extract) =>
             val roomDetailsMap = extract.split("\n").map(str => {
               val kv = str.split("-")
@@ -77,12 +83,12 @@ class EraCrawler extends Crawler with LazyLogging {
           case Failure(t) =>
             println(s"Failed to get room details for URL ${url} - ${t.getMessage}")
             RoomDetails(Map.empty[String, String])
-          }
+        }
         val salesRepresentative = Some(
           driver.findElement(By.xpath("//div[@class=\"agent-details\"]")).getText)
         val salesDetails = SalesDetails(id = salesId, representative = salesRepresentative,
           phone = Some(""))
-        logger.info(s"Final sales details: ${salesDetails}")
+        logger.info(s"${this.getClass.getName} - Final sales details: ${salesDetails}")
 
         Some(PropertyData(url, title, status = state,
           realestate = realestateCompany.toString,
@@ -90,7 +96,9 @@ class EraCrawler extends Crawler with LazyLogging {
       }
     } catch {
       case e: Exception => {
-        println(s"Failed to crawl products for URL: ${url} --- ${e.getMessage}")
+        println(s"${this.getClass.getName} - Failed to crawl products for URL: ${url} --- ${
+          e.getMessage
+        }")
         None
       }
     } finally {
@@ -107,14 +115,14 @@ class EraCrawler extends Crawler with LazyLogging {
     var countEmptyResults = 0
     while (continueNextPage) {
       pageCount += 1
-      println(s"Crawling page num ${pageCount}...")
+      println(s"${this.getClass.getName} - Crawling page num ${pageCount}...")
       try {
         val results = crawlForProducts(url = getPageUrl(pageCount))
         println(s"Got a total of ${results.size} results from URL: ${getPageUrl(pageCount)}")
         if (results.isEmpty) {
           countEmptyResults += 1
         }
-        if (countEmptyResults >= 20 || pageCount >= 100) {
+        if (countEmptyResults >= 20 || pageCount >= 1) {
           continueNextPage = false
         }
         productUrls ++= results
@@ -142,16 +150,19 @@ class EraCrawler extends Crawler with LazyLogging {
       val linksFiltered = allLinks.map(e => e.getAttribute("href"))
           .filter(l => l != null)
       if (linksFiltered.nonEmpty) {
-        val linksFiltered2 = linksFiltered
-            .filter(
-              link => link.startsWith("https://www.century21.pt/comprar/apartamento/lisboa"))
-        linksFiltered2
+        linksFiltered
+            .filter(url => url.startsWith("https://www.era.pt/imoveis"))
+            .filter(url => !url.equals("https://www.era.pt/imoveis/comprar") &&
+                !url.equals("https://www.era.pt/imoveis/arrendar") &&
+                !url.startsWith("https://www.era.pt/imoveis/default.aspx") &&
+                !url.startsWith("https://www.era.pt/imoveis/comprar/apartamentos/lisboa/lisboa?pg=")
+            )
       } else {
         Set.empty[String]
       }
     } catch {
       case e: Exception => {
-        println(s"Failed to crawl products for URL --- ${e.getMessage}")
+        println(s"${this.getClass.getName} - Failed to crawl products for URL --- ${e.getMessage}")
         Set.empty[String]
       }
     } finally {
@@ -163,40 +174,9 @@ class EraCrawler extends Crawler with LazyLogging {
     }
   }
 
-  private def getNextPage(driver: ChromeDriver): WebElement = driver.findElement(By.xpath("//li[@class=\"page\"]"))
+  private def getNextPage(driver: ChromeDriver): WebElement = driver
+      .findElement(By.xpath("//li[@class=\"page\"]"))
 
   private def getPageUrl(pageNum: Int): String = s"https://www.era.pt/imoveis/comprar/apartamentos/lisboa/lisboa?pg=${pageNum}"
 
-  private def l1DetailsExtract(str: String, splitter: String = ":",
-                               indexExtract: Int = 1): Option[String] = {
-    val extract = str.split(splitter)
-    if (extract.isEmpty) {
-      None
-    }
-    if (extract.length <= 1) {
-      Some(extract(0).trim)
-    }
-    Some(extract(indexExtract).trim)
-  }
-
-  private def l2DetailsExtract(str: String, splitterL1: String = ":",
-                               splitterL2: String = "\\s",
-                               l1IndexExtract: Int = 1,
-                               l2IndexExtract: Int = 1): Option[String] = {
-    l1DetailsExtract(str, splitterL1, l1IndexExtract) match {
-      case Some(newStr) => l1DetailsExtract(newStr.trim, splitterL2, l2IndexExtract)
-      case None => None
-    }
-  }
-
-  private def l2DetailsExtractToInt(str: String, splitterL1: String = ":",
-                                    splitterL2: String = "\\s",
-                                    l1IndexExtract: Int = 1,
-                                    l2IndexExtract: Int = 1
-                                   ): Option[Int] = {
-    l2DetailsExtract(str, splitterL1, splitterL2, l1IndexExtract, l2IndexExtract) match {
-      case Some(value) => Some(value.toInt)
-      case _ => None
-    }
-  }
 }

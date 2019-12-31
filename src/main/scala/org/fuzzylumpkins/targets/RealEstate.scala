@@ -1,4 +1,4 @@
-package org.fuzzylumpkins.crawl
+package org.fuzzylumpkins.targets
 
 object RealEstate {
   sealed trait Company

@@ -12,23 +12,23 @@ import org.fuzzylumpkins.crawl.CrawlServiceFactory.OverallDetails
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.PropertyData
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.RoomDetails
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.SalesDetails
+import org.fuzzylumpkins.targets.RealEstate
 import org.openqa.selenium.By
-import org.openqa.selenium.WebElement
 import org.openqa.selenium.chrome.ChromeDriver
 
 class Century21Crawler extends Crawler with LazyLogging {
 
   override def collectInfo(url: String, realestateCompany: RealEstate.Company): Option[PropertyData] = {
-    println(s"Crawling product details for url ${url}")
+    println(s"${this.getClass.getName} Crawling product details for url ${url}")
     System.setProperty("webdriver.chrome.driver", "/usr/bin/chromedriver")
     val driver = new ChromeDriver()
     try {
       driver.manage().window().maximize()
-      driver.manage().timeouts().implicitlyWait(3l, TimeUnit.SECONDS)
+      driver.manage().timeouts().implicitlyWait(10l, TimeUnit.SECONDS)
       driver.get(url)
 
-      val title = Some(driver.findElement(By.xpath("//div[@class=\"property-name\"]/h3")).getText)
-      val salesId = Some(driver.findElement(By.xpath("//div[@class=\"property-name\"]/p")).getText)
+      val title = safeGetStringWebElement(() => driver.findElement(By.xpath("//div[@class=\"property-name\"]/h3")))
+      val salesId = safeGetStringWebElement(() => driver.findElement(By.xpath("//div[@class=\"property-name\"]/p")))
       val details = driver.findElement(By.xpath("//div[@class=\"main-details\"]/h4")).getText
       val splitDetails = details.split(" ")
       val numBedRooms = Some(splitDetails(0).toInt)
@@ -37,7 +37,7 @@ class Century21Crawler extends Crawler with LazyLogging {
           .findElement(By.xpath("//div[@class=\"property-details-list\"]/ul")).getText
 
       if (overallDetailsExtract.length == 0) {
-        println("No property details were found!")
+        println(s"${this.getClass.getName} No property details were found!")
         None
       } else {
         val additionalArr = overallDetailsExtract.split("\n")
@@ -56,7 +56,7 @@ class Century21Crawler extends Crawler with LazyLogging {
         val overallDetails = OverallDetails(priceExtracted, year = yearBuilt, netArea, rawArea,
           numBathRooms, numBedRooms, overallCondition, parkingDetails = Some(""), energyCertificate,
           textDescription = textDetails)
-        logger.info(s"Extracted overallDetails for URL ${url}: ${overallDetails}")
+        logger.info(s"${this.getClass.getName} - Extracted overallDetails for URL ${url}: ${overallDetails}")
         val roomDetails = Try(driver
               .findElement(By.xpath("//div[@class=\"property-details-list\"][2]/ul")).getText) match {
           case Success(extract) =>
@@ -75,7 +75,7 @@ class Century21Crawler extends Crawler with LazyLogging {
                 .filter(kv => kv._1.length > 0)
             RoomDetails(roomDetailsMap)
           case Failure(t) =>
-            println(s"Failed to get room details for URL ${url} - ${t.getMessage}")
+            println(s"${this.getClass.getName} Failed to get room details for URL ${url} - ${t.getMessage}")
             RoomDetails(Map.empty[String, String])
           }
         val salesRepresentative = Some(
@@ -90,7 +90,7 @@ class Century21Crawler extends Crawler with LazyLogging {
       }
     } catch {
       case e: Exception => {
-        println(s"Failed to crawl products for URL: ${url} --- ${e.getMessage}")
+        println(s"${this.getClass.getName} - Failed to crawl products for URL: ${url} --- ${e.getMessage}")
         None
       }
     } finally {
@@ -115,7 +115,7 @@ class Century21Crawler extends Crawler with LazyLogging {
         if (results.isEmpty) {
           countEmptyResults += 1
         }
-        if (countEmptyResults >= 20 || pageCount >= 100) {
+        if (countEmptyResults >= 20 || pageCount >= 2) {
           continueNextPage = false
         }
         productUrls ++= results
@@ -133,7 +133,7 @@ class Century21Crawler extends Crawler with LazyLogging {
     val driver = new ChromeDriver()
 
     driver.manage().window().maximize()
-    driver.manage().timeouts().implicitlyWait(3l, TimeUnit.SECONDS)
+    driver.manage().timeouts().implicitlyWait(10l, TimeUnit.SECONDS)
 
     driver.get(url)
     try {
@@ -164,40 +164,6 @@ class Century21Crawler extends Crawler with LazyLogging {
     }
   }
 
-  private def getNextPage(driver: ChromeDriver): WebElement = driver.findElement(By.xpath("//li[@class=\"page\"]"))
-
   private def getPageUrl(pageNum: Int): String = s"https://www.century21.pt/comprar/apartamento/todos-os-concelhos/?v=c&ord=date-desc&page=${pageNum}&numberOfElements=12&q=lisboa&ptd=Apartamento&be=2"
 
-  private def l1DetailsExtract(str: String, splitter: String = ":",
-                               indexExtract: Int = 1): Option[String] = {
-    val extract = str.split(splitter)
-    if (extract.isEmpty) {
-      None
-    }
-    if (extract.length <= 1) {
-      Some(extract(0).trim)
-    }
-    Some(extract(indexExtract).trim)
-  }
-
-  private def l2DetailsExtract(str: String, splitterL1: String = ":",
-                               splitterL2: String = "\\s",
-                               l1IndexExtract: Int = 1,
-                               l2IndexExtract: Int = 1): Option[String] = {
-    l1DetailsExtract(str, splitterL1, l1IndexExtract) match {
-      case Some(newStr) => l1DetailsExtract(newStr.trim, splitterL2, l2IndexExtract)
-      case None => None
-    }
-  }
-
-  private def l2DetailsExtractToInt(str: String, splitterL1: String = ":",
-                                    splitterL2: String = "\\s",
-                                    l1IndexExtract: Int = 1,
-                                    l2IndexExtract: Int = 1
-                                   ): Option[Int] = {
-    l2DetailsExtract(str, splitterL1, splitterL2, l1IndexExtract, l2IndexExtract) match {
-      case Some(value) => Some(value.toInt)
-      case _ => None
-    }
-  }
 }
