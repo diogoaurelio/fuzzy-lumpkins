@@ -16,7 +16,7 @@ import org.openqa.selenium.By
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.chrome.ChromeDriver
 
-class Century21Crawler extends Crawler with LazyLogging {
+class EraCrawler extends Crawler with LazyLogging {
 
   override def collectInfo(url: String, realestateCompany: RealEstate.Company): Option[PropertyData] = {
     println(s"Crawling product details for url ${url}")
@@ -99,10 +99,9 @@ class Century21Crawler extends Crawler with LazyLogging {
         driver.close()
       }
     }
-
   }
 
-  override def gatherProducts: Set[String] = {
+  def gatherProducts(): Set[String] = {
     var pageCount = 0
     var continueNextPage = true
     var countEmptyResults = 0
@@ -166,7 +165,7 @@ class Century21Crawler extends Crawler with LazyLogging {
 
   private def getNextPage(driver: ChromeDriver): WebElement = driver.findElement(By.xpath("//li[@class=\"page\"]"))
 
-  private def getPageUrl(pageNum: Int): String = s"https://www.century21.pt/comprar/apartamento/todos-os-concelhos/?v=c&ord=date-desc&page=${pageNum}&numberOfElements=12&q=lisboa&ptd=Apartamento&be=2"
+  private def getPageUrl(pageNum: Int): String = s"https://www.era.pt/imoveis/comprar/apartamentos/lisboa/lisboa?pg=${pageNum}"
 
   private def l1DetailsExtract(str: String, splitter: String = ":",
                                indexExtract: Int = 1): Option[String] = {

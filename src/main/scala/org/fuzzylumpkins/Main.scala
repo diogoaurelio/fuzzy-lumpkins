@@ -1,7 +1,8 @@
 package org.fuzzylimpkins
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import org.fuzzylimpkins.CrawlServer.{CrawlRequest, CrawlResponse, CrawlInProgress}
+import org.fuzzylimpkins.CrawlServer.{CrawlInProgress, CrawlRequest, CrawlResponse}
+import org.fuzzylumpkins.crawl.RealEstate
 
 
 object Main extends App {
@@ -13,8 +14,8 @@ object Main extends App {
 }
 
 class Main(managerActor: ActorRef, depth: Integer) extends Actor {
-  val centuryAddress = "https://www.century21.pt/comprar/apartamento/todos-os-concelhos/?v=c&ord=date-desc&page=1&numberOfElements=12&q=portugal+lisboa&ptd=Apartamento&be=2"
-  managerActor ! CrawlRequest(centuryAddress, depth)
+//  managerActor ! CrawlRequest(RealEstateCompanies.Century21, depth)
+  managerActor ! CrawlRequest(RealEstate.Era, depth)
 
   def receive = {
     case CrawlResponse(root, rawBlob, links) => {

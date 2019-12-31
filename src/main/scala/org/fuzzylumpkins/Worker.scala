@@ -9,7 +9,7 @@ import akka.actor.Actor
 import com.github.tototoshi.csv.CSVWriter
 import org.apache.commons.validator.routines.UrlValidator
 import org.fuzzylumpkins.crawl.CrawlServiceFactory
-import org.fuzzylumpkins.crawl.RealEstateCompanies
+import org.fuzzylumpkins.crawl.RealEstate
 
 
 class Worker extends Actor {
@@ -18,14 +18,14 @@ class Worker extends Actor {
   val na = "N/A"
 
   def receive = {
-    case Worker.Crawl(url, depth) =>
-      val result = crawl(url)
+    case Worker.Crawl(realestate, depth) =>
+      val result = crawl(realestate)
       if (result.isDefined) {
         sender() ! result
       }
   }
 
-  def crawl(url: String): Option[Worker.Result] = {
+  def crawl(realestate: RealEstate.Company): Option[Worker.Result] = {
     val csvSchema = List("real-estate-company", "title", "sales-id", "sales-representative",
       "url", "status", "price", "year-built", "net-area", "raw-area", "num-bedrooms",
       "num-bathrooms", "overall-condition", "energy-certificate", "room-details",
@@ -35,7 +35,7 @@ class Worker extends Actor {
     val date = new Date(System.currentTimeMillis)
     val formater = new SimpleDateFormat("yyyy_MM_dd")
     println(s"Starting crawl for ${formater.format(date)}")
-    val result: List[List[String]] = service.crawl(RealEstateCompanies.century21.toString)
+    val result: List[List[String]] = service.crawl(realestate)
         .toList
         .map(p =>
           List(p.realestate, p.title.getOrElse(na), p.salesDetails.id.getOrElse(na),
@@ -55,14 +55,13 @@ class Worker extends Actor {
     } finally {
       outputFile.close()
     }
-    Some(Worker.Result(url, "", Set()))
+    Some(Worker.Result(realestate, "", Set()))
   }
 }
 
 object Worker {
 
-  case class Result(url: String, rawBlob: String, links: Set[String])
-
-  case class Crawl(url: String, depth: Integer)
+  case class Result(realestate: RealEstate.Company, rawBlob: String, links: Set[String])
+  case class Crawl(realestate: RealEstate.Company, depth: Integer)
 
 }
