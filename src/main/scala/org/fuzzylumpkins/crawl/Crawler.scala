@@ -31,6 +31,16 @@ trait Crawler {
     }
   }
 
+  def safeGetIntWebElement(getElm: () => WebElement): Option[Int] = {
+    safeGetStringWebElement(getElm) match {
+      case Some(elm) => Try(elm.toInt) match {
+        case Success(e) => Some(e)
+        case Failure(_) => None
+      }
+      case _ => None
+    }
+  }
+
   def l1DetailsExtract(str: String, splitter: String = ":",
                                indexExtract: Int = 1): Option[String] = {
     val extract = str.split(splitter)
@@ -60,6 +70,17 @@ trait Crawler {
                                    ): Option[Int] = {
     l2DetailsExtract(str, splitterL1, splitterL2, l1IndexExtract, l2IndexExtract) match {
       case Some(value) => Some(value.toInt)
+      case _ => None
+    }
+  }
+
+  def l2DetailsExtractToDouble(str: String, splitterL1: String = ":",
+                            splitterL2: String = "\\s",
+                            l1IndexExtract: Int = 1,
+                            l2IndexExtract: Int = 1
+                           ): Option[Double] = {
+    l2DetailsExtract(str, splitterL1, splitterL2, l1IndexExtract, l2IndexExtract) match {
+      case Some(value) => Some(value.toDouble)
       case _ => None
     }
   }

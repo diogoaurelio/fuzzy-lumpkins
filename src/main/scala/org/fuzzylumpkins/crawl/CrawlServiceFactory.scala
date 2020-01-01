@@ -33,7 +33,9 @@ class CrawlServiceFactory extends LazyLogging {
       case RealEstate.Century21 => new Century21Crawler
       case RealEstate.Era => new EraCrawler
       case _ =>
-        val error = s"${this.getClass.getName} - Provided real-estate company '${realEstate}' is not listed in our records, " +
+        val error = s"${
+          this.getClass.getName
+        } - Provided real-estate company '${realEstate}' is not listed in our records, " +
             s"unable to proceed"
         logger.error(error)
         sys.exit(1)
@@ -44,16 +46,32 @@ class CrawlServiceFactory extends LazyLogging {
 object CrawlServiceFactory {
 
   case class PropertyData(url: String, title: Option[String], status: Option[String],
-                          realestate: String, salesDetails: SalesDetails,
-                          overallDetails: OverallDetails, roomDetails: RoomDetails)
+                          purpose: String = "sell", company: String,
+                          salesDetails: SalesDetails,
+                          overallDetails: OverallDetails,
+                          roomDetails: RoomDetails,
+                          locationDetails: LocationDetails,
+                          additionalDetails: AdditionalDetails,
+                         )
 
-  case class OverallDetails(price: Option[String], year: Option[String], netArea: Option[Int],
-                            rawArea: Option[Int], numBathRooms: Option[Int],
+  case class OverallDetails(price: Option[String],
+                            year: Option[String],
+                            netArea: Option[Double],
+                            rawArea: Option[Double],
+                            numBathRooms: Option[Int],
                             numBedRooms: Option[Int],
-                            conditions: Option[String], parkingDetails: Option[String],
-                            energyCertificate: Option[String], textDescription: Option[String])
+                            conditions: Option[String],
+                            parkingDetails: Option[String] = None,
+                            energyCertificate: Option[String] = None,
+                            textDescription: Option[String])
+
+  case class LocationDetails(city: Option[String], district: Option[String],
+                             parish: Option[String] = None,
+                             extraDetails: Option[String] = None)
 
   case class RoomDetails(details: Map[String, String])
+
+  case class AdditionalDetails(details: Map[String, String])
 
   case class SalesDetails(id: Option[String], representative: Option[String], phone: Option[String])
 

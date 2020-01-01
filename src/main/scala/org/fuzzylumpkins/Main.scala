@@ -44,7 +44,7 @@ class Main(managerActor: ActorRef, exporterActor: ActorRef) extends Actor {
         val data: List[List[String]] = propertyData
             .toList
             .map(p =>
-              List(p.realestate, p.title.getOrElse(na), p.salesDetails.id.getOrElse(na),
+              List(p.company, p.title.getOrElse(na), p.salesDetails.id.getOrElse(na),
                 p.salesDetails.representative.getOrElse(na), p.url, p.status.getOrElse(na),
                 p.overallDetails.price.getOrElse(na),
                 p.overallDetails.year.getOrElse(na),

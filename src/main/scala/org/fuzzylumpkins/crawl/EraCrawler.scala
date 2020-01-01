@@ -8,6 +8,8 @@ import scala.util.Success
 import scala.util.Try
 
 import com.typesafe.scalalogging.LazyLogging
+import org.fuzzylumpkins.crawl.CrawlServiceFactory.AdditionalDetails
+import org.fuzzylumpkins.crawl.CrawlServiceFactory.LocationDetails
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.OverallDetails
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.PropertyData
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.RoomDetails
@@ -25,16 +27,110 @@ class EraCrawler extends Crawler with LazyLogging {
     System.setProperty("webdriver.chrome.driver", "/usr/bin/chromedriver")
     val driver = new ChromeDriver()
     try {
-      driver.manage().window().maximize()
+      //driver.manage().window().maximize()
       driver.manage().timeouts().implicitlyWait(3l, TimeUnit.SECONDS)
       driver.get(url)
 
+      // overall
       val title = safeGetStringWebElement(
-        () => driver.findElement(By.xpath("//div[@class=\"property-name\"]/h3")))
-      val salesId = safeGetStringWebElement(
-        () => driver.findElement(By.xpath("//div[@class=\"property-name\"]/p")))
+        () => driver.findElement(By.xpath("//div[@class=\"titulos\"]/h2")))
+              .map(s => s.trim)
 
-      val details = driver.findElement(By.xpath("//div[@class=\"main-details\"]/h4")).getText
+      val state = safeGetStringWebElement(() => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_lbl_imovel_show_txt_estado\"]")))
+          .map(s => s.trim)
+
+      val priceExtract = safeGetStringWebElement(() => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_lbl_imovel_show_preco_venda\"]")))
+          .map(s => s.trim)
+      val rawAreaExtract: Option[Double] = safeGetStringWebElement(() => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_lbl_imovel_show_area_bruta\"]")))
+          .map(s => Try(s.trim.split("m")(0).toDouble) match {
+            case Success(e) => e
+            case Failure(_) => 0
+          })
+      val textDetails = safeGetStringWebElement(() => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_div_texto_imovel\"]")))
+          .map(s => s.trim)
+
+      val overallDetails = OverallDetails(price = priceExtract, year = None, netArea = None,
+        rawArea = rawAreaExtract, numBathRooms = None, numBedRooms = None, conditions = None,
+        energyCertificate = None, textDescription = textDetails)
+
+      println(s"PUTA OVERALL DETAILS: ${overallDetails}")
+
+      val roomDetailsExtract = safeGetStringWebElement(() => driver.findElement(By.xpath("//div[@id=\"ctl00_ContentPlaceHolder1_tabshow1\"]")))
+          .map(details => {
+            val roomDetailsExtract = details.split("\n").map(str => {
+              val kv = str.split("-")
+              if (kv.isEmpty) {
+                "" -> ""
+              } else if (kv.length == 1) {
+                kv(0).trim -> ""
+              } else {
+                kv(0).trim -> kv(1).trim
+              }
+            })
+                .toMap
+                .filter(kv => kv != null)
+                .filter(kv => kv._1.length > 0)
+            RoomDetails(details = roomDetailsExtract)
+          })
+          .headOption
+      println(s"PUTA ROOM DETAILS ${roomDetailsExtract}")
+
+      // additional details
+      val additionalDetails: Option[AdditionalDetails] = safeGetStringWebElement(() => driver.findElement(By.xpath("//div[@id=\"ctl00_ContentPlaceHolder1_tabshow0\"]")))
+          .map(details => {
+            val additionalDetailsExtract  = details.split("\n").map(str => {
+              val kv = str.split("-")
+              if (kv.isEmpty) {
+                "" -> ""
+              } else if (kv.length == 1) {
+                kv(0).trim -> ""
+              } else {
+                kv(0).trim -> kv(1).trim
+              }
+            })
+                .toMap
+                .filter(kv => kv != null)
+                .filter(kv => kv._1.length > 0)
+            AdditionalDetails(details = additionalDetailsExtract)
+          })
+          .headOption
+
+      println(s"PUTA Additional Details: ${additionalDetails}")
+
+
+      // sales
+      val salesId = safeGetStringWebElement(
+        () => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_lbl_ref\"]")))
+          .map(elm => {
+            val arr = elm.split("/ REF:")
+            if (arr.length > 1)
+              arr(1).trim
+            else
+              arr(0).trim
+          })
+
+      val salesDetails = SalesDetails(id = salesId, representative = None, phone = None)
+
+      // location
+      val locationExtraDetails = safeGetStringWebElement(() => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_lbl_imovel_show_zona\"]")))
+          .map(s => s.trim)
+      val parish = safeGetStringWebElement(() => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_lbl_imovel_show_freguesia\"]")))
+          .map(s => s.trim)
+      val districtExtract = safeGetStringWebElement(() => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_lbl_imovel_show_distrito\"]")))
+          .map(s => s.trim)
+      val cityExtract = safeGetStringWebElement(() => driver.findElement(By.xpath("//span[@id=\"ctl00_ContentPlaceHolder1_lbl_imovel_show_concelho\"]")))
+          .map(s => s.trim)
+
+      val locationDetails = LocationDetails(city = cityExtract, district = districtExtract,
+        parish = parish, extraDetails = locationExtraDetails)
+      println(s"Location details: ${locationDetails}")
+
+
+
+      /*
+
+      val details = safeGetStringWebElement(() => driver.findElement(By.xpath("//div[@class=\"main-details\"]/h4")))
+          .map(s => s.trim)
       val splitDetails = details.split(" ")
       val numBedRooms = Some(splitDetails(0).toInt)
       val numBathRooms = Some(splitDetails(2).toInt)
@@ -89,11 +185,16 @@ class EraCrawler extends Crawler with LazyLogging {
         val salesDetails = SalesDetails(id = salesId, representative = salesRepresentative,
           phone = Some(""))
         logger.info(s"${this.getClass.getName} - Final sales details: ${salesDetails}")
-
+        */
         Some(PropertyData(url, title, status = state,
-          realestate = realestateCompany.toString,
-          salesDetails = salesDetails, overallDetails = overallDetails, roomDetails = roomDetails))
-      }
+          company = realestateCompany.toString,
+          salesDetails = salesDetails,
+          overallDetails = overallDetails,
+          roomDetails = RoomDetails(Map.empty[String, String]),
+          locationDetails = locationDetails,
+          additionalDetails = AdditionalDetails(Map.empty[String, String])
+        ))
+
     } catch {
       case e: Exception => {
         println(s"${this.getClass.getName} - Failed to crawl products for URL: ${url} --- ${
@@ -147,19 +248,15 @@ class EraCrawler extends Crawler with LazyLogging {
       val allLinks = driver.findElements(By.tagName("a"))
           .asScala
           .toSet
-      val linksFiltered = allLinks.map(e => e.getAttribute("href"))
+      allLinks
+          .map(e => e.getAttribute("href"))
           .filter(l => l != null)
-      if (linksFiltered.nonEmpty) {
-        linksFiltered
-            .filter(url => url.startsWith("https://www.era.pt/imoveis"))
-            .filter(url => !url.equals("https://www.era.pt/imoveis/comprar") &&
-                !url.equals("https://www.era.pt/imoveis/arrendar") &&
-                !url.startsWith("https://www.era.pt/imoveis/default.aspx") &&
-                !url.startsWith("https://www.era.pt/imoveis/comprar/apartamentos/lisboa/lisboa?pg=")
-            )
-      } else {
-        Set.empty[String]
-      }
+          .filter(url => url.startsWith("https://www.era.pt/imoveis"))
+          .filter(url => !url.equals("https://www.era.pt/imoveis/comprar") &&
+              !url.equals("https://www.era.pt/imoveis/arrendar") &&
+              !url.startsWith("https://www.era.pt/imoveis/default.aspx") &&
+              !url.startsWith("https://www.era.pt/imoveis/comprar/apartamentos/lisboa/lisboa?pg=")
+          )
     } catch {
       case e: Exception => {
         println(s"${this.getClass.getName} - Failed to crawl products for URL --- ${e.getMessage}")

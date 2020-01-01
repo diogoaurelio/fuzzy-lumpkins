@@ -8,6 +8,8 @@ import scala.util.Success
 import scala.util.Try
 
 import com.typesafe.scalalogging.LazyLogging
+import org.fuzzylumpkins.crawl.CrawlServiceFactory.AdditionalDetails
+import org.fuzzylumpkins.crawl.CrawlServiceFactory.LocationDetails
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.OverallDetails
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.PropertyData
 import org.fuzzylumpkins.crawl.CrawlServiceFactory.RoomDetails
@@ -44,8 +46,8 @@ class Century21Crawler extends Crawler with LazyLogging {
         val priceExtracted = l1DetailsExtract(additionalArr(0))
 
         val state = l1DetailsExtract(additionalArr(1))
-        val netArea = l2DetailsExtractToInt(additionalArr(2), l2IndexExtract = 0)
-        val rawArea = l2DetailsExtractToInt(additionalArr(3), l2IndexExtract = 0)
+        val netArea = l2DetailsExtractToDouble(additionalArr(2), l2IndexExtract = 0)
+        val rawArea = l2DetailsExtractToDouble(additionalArr(3), l2IndexExtract = 0)
         val overallCondition = l1DetailsExtract(additionalArr(4))
         val yearBuilt = l1DetailsExtract(additionalArr(7))
         val energyCertificate = l1DetailsExtract(additionalArr(8))
@@ -53,8 +55,9 @@ class Century21Crawler extends Crawler with LazyLogging {
         val textDetails = Some(
           driver.findElement(By.xpath("//p[@class=\"description read-more-100\"]")).getText.trim)
 
-        val overallDetails = OverallDetails(priceExtracted, year = yearBuilt, netArea, rawArea,
-          numBathRooms, numBedRooms, overallCondition, parkingDetails = Some(""), energyCertificate,
+        val overallDetails = OverallDetails(priceExtracted, year = yearBuilt, netArea = netArea,
+          rawArea = rawArea, numBathRooms = numBathRooms, numBedRooms = numBedRooms,
+          conditions = overallCondition, parkingDetails = None, energyCertificate = energyCertificate,
           textDescription = textDetails)
         logger.info(s"${this.getClass.getName} - Extracted overallDetails for URL ${url}: ${overallDetails}")
         val roomDetails = Try(driver
@@ -83,10 +86,15 @@ class Century21Crawler extends Crawler with LazyLogging {
         val salesDetails = SalesDetails(id = salesId, representative = salesRepresentative,
           phone = Some(""))
         logger.info(s"Final sales details: ${salesDetails}")
-
+        val locationDetails = LocationDetails(city = Some("Lisboa"), district = Some("Lisboa"))
         Some(PropertyData(url, title, status = state,
-          realestate = realestateCompany.toString,
-          salesDetails = salesDetails, overallDetails = overallDetails, roomDetails = roomDetails))
+          company = realestateCompany.toString,
+          salesDetails = salesDetails,
+          overallDetails = overallDetails,
+          roomDetails = roomDetails,
+          locationDetails = locationDetails,
+          additionalDetails = AdditionalDetails(Map.empty[String, String])
+        ))
       }
     } catch {
       case e: Exception => {
