@@ -26,8 +26,8 @@ class Main(managerActor: ActorRef, exporterActor: ActorRef) extends Actor {
 
   val na = "N/A"
 
-  //managerActor ! CrawlRequest(RealEstate.Century21)
-  managerActor ! CrawlRequest(RealEstate.Era)
+  managerActor ! CrawlRequest(RealEstate.Century21)
+  //managerActor ! CrawlRequest(RealEstate.Era)
 
   def receive = {
     case CrawlResponse(company, propertyData) => {

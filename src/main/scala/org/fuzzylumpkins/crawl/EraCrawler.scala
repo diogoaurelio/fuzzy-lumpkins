@@ -53,7 +53,7 @@ class EraCrawler extends Crawler with LazyLogging {
         rawArea = rawAreaExtract, numBathRooms = None, numBedRooms = None, conditions = None,
         energyCertificate = None, textDescription = textDetails)
 
-      println(s"PUTA OVERALL DETAILS: ${overallDetails}")
+      println(s"OVERALL DETAILS: ${overallDetails}")
 
       val roomDetailsExtract = safeGetStringWebElement(() => driver.findElement(By.xpath("//div[@id=\"ctl00_ContentPlaceHolder1_tabshow1\"]")))
           .map(details => {
@@ -73,7 +73,7 @@ class EraCrawler extends Crawler with LazyLogging {
             RoomDetails(details = roomDetailsExtract)
           })
           .headOption
-      println(s"PUTA ROOM DETAILS ${roomDetailsExtract}")
+      println(s"ROOM DETAILS ${roomDetailsExtract}")
 
       // additional details
       val additionalDetails: Option[AdditionalDetails] = safeGetStringWebElement(() => driver.findElement(By.xpath("//div[@id=\"ctl00_ContentPlaceHolder1_tabshow0\"]")))
@@ -95,7 +95,7 @@ class EraCrawler extends Crawler with LazyLogging {
           })
           .headOption
 
-      println(s"PUTA Additional Details: ${additionalDetails}")
+      println(s"Additional Details: ${additionalDetails}")
 
 
       // sales
